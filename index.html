@@ -90,8 +90,17 @@
         <section class="relative h-[500vh] bg-black">
             <div class="sticky top-20 h-[calc(100vh-5rem)] w-full overflow-hidden flex items-center justify-center">
                 
-                <!-- Static Image Background (Replaces Canvas Sequence) -->
-                <img src="assets/img/Teaching_Hero.jpg" class="absolute inset-0 w-full h-full object-cover z-0 opacity-100" style="animation: kenburns 20s ease-out infinite alternate;">
+                <!-- Preloader -->
+                <div id="hero-loading" class="absolute z-50 flex flex-col items-center gap-6">
+                    <img src="assets/img/Logo.png" alt="Ram Saran Yadav Logo" class="h-20 w-auto object-contain drop-shadow-2xl animate-pulse">
+                    <div class="text-white font-heading text-lg md:text-xl font-bold tracking-widest flex items-center gap-4 bg-black/40 px-6 py-3 rounded-full backdrop-blur-md border border-white/10">
+                        <div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <span id="hero-loading-text">Loading Sequence 0%</span>
+                    </div>
+                </div>
+                
+                <!-- Canvas for scroll sequence -->
+                <canvas id="scroll-sequence" class="absolute inset-0 w-full h-full object-cover z-0 opacity-100"></canvas>
                 
                 <!-- Overlays -->
                 <div class="absolute inset-0 w-full h-full bg-gradient-to-t from-black via-transparent to-transparent z-10 pointer-events-none"></div>
@@ -327,7 +336,110 @@
     <div data-component="Footer"></div>
     <script src="assets/js/app.js"></script>
 
-    <!-- Scroll Jacking Script Removed -->
+    <!-- Scroll Jacking Script -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const canvas = document.getElementById("scroll-sequence");
+            if(!canvas) return;
+            const context = canvas.getContext("2d");
+            const loading = document.getElementById("hero-loading");
+            const loadingText = document.getElementById("hero-loading-text");
+            
+            const frameCount = 95;
+            const currentFrame = index => `Final_Teacher/Teaching_${index.toString().padStart(3, '0')}.jpg`;
+            
+            const images = [];
+            let loaded = 0;
+            
+            function drawImageCover(ctx, img, w, h) {
+                const imgRatio = img.width / img.height;
+                const canvasRatio = w / h;
+                let renderW, renderH, x = 0, y = 0;
+                if(imgRatio > canvasRatio) {
+                    renderH = h;
+                    renderW = h * imgRatio;
+                    x = (w - renderW) / 2;
+                } else {
+                    renderW = w;
+                    renderH = w / imgRatio;
+                    y = (h - renderH) * 0.05; // 5% shift up instead of 25%, saving the head!
+                }
+                ctx.drawImage(img, x, y, renderW, renderH);
+            }
+
+            function resizeCanvas() {
+                const dpr = window.devicePixelRatio || 1;
+                const rect = canvas.parentElement.getBoundingClientRect();
+                
+                canvas.width = rect.width * dpr;
+                canvas.height = rect.height * dpr;
+                
+                canvas.style.width = `${rect.width}px`;
+                canvas.style.height = `${rect.height}px`;
+                
+                context.scale(dpr, dpr);
+                return { w: rect.width, h: rect.height };
+            }
+
+            for (let i = 0; i < frameCount; i++) {
+                const img = new Image();
+                img.src = currentFrame(i);
+                img.onload = () => {
+                    loaded++;
+                    loadingText.innerText = `Loading Sequence ${Math.floor((loaded / frameCount) * 100)}%`;
+                    if (loaded === frameCount) {
+                        loading.style.opacity = '0';
+                        setTimeout(() => loading.style.display = 'none', 500);
+                    }
+                    if (i === 0) {
+                        const dims = resizeCanvas();
+                        drawImageCover(context, img, dims.w, dims.h);
+                    }
+                };
+                images.push(img);
+            }
+            
+            let isScrolling = false;
+            window.addEventListener('scroll', () => {  
+                if (!isScrolling) {
+                    window.requestAnimationFrame(() => {
+                        const scrollTop = window.scrollY;
+                        const maxScroll = window.innerHeight * 4; 
+                        
+                        if (scrollTop <= maxScroll) {
+                            let scrollFraction = scrollTop / maxScroll;
+                            if (scrollFraction > 1) scrollFraction = 1;
+                            if (scrollFraction < 0) scrollFraction = 0;
+                            
+                            const frameIndex = Math.min(frameCount - 1, Math.floor(scrollFraction * frameCount));
+                            if (images[frameIndex] && images[frameIndex].complete) {
+                                const dims = { w: canvas.clientWidth, h: canvas.clientHeight };
+                                context.clearRect(0, 0, canvas.width, canvas.height);
+                                drawImageCover(context, images[frameIndex], dims.w, dims.h);
+                            }
+                        }
+                        isScrolling = false;
+                    });
+                    isScrolling = true;
+                }
+            });
+            
+            window.addEventListener('resize', () => {
+                const dims = resizeCanvas();
+                const scrollTop = window.scrollY;
+                const maxScroll = window.innerHeight * 4;
+                let scrollFraction = scrollTop / maxScroll;
+                if (scrollFraction > 1) scrollFraction = 1;
+                if (scrollFraction < 0) scrollFraction = 0;
+                const frameIndex = Math.min(frameCount - 1, Math.floor(scrollFraction * frameCount));
+                
+                if(images[frameIndex] && images[frameIndex].complete) {
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    drawImageCover(context, images[frameIndex], dims.w, dims.h);
+                }
+            });
+        });
+    </script>
 </body>
 
 </html>
